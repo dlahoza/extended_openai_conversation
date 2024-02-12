@@ -48,6 +48,7 @@ from .exceptions import (
     NativeNotFound,
     InvalidFunction,
     FunctionNotFound,
+    ParseArgumentsFailed,
 )
 
 from .const import (
@@ -211,7 +212,6 @@ class NativeFunctionExecutor(FunctionExecutor):
             return await self.get_history(
                 hass, function, arguments, user_input, exposed_entities
             )
-
         raise NativeNotFound(name)
 
     async def execute_service_single(
@@ -234,6 +234,16 @@ class NativeFunctionExecutor(FunctionExecutor):
         if isinstance(entity_id, str):
             entity_id = [e.strip() for e in entity_id.split(",")]
         service_data["entity_id"] = entity_id
+
+        if domain == "custom" and service == "call":
+            if entity_id == ["wait"]:
+                duration = service_data.get("duration")
+                if duration is None:
+                    raise ParseArgumentsFailed(service_data)
+                time.sleep(duration)
+                return {"success": True}
+            else:
+                raise FunctionNotFound(entity_id)
 
         if entity_id is None and area_id is None and device_id is None:
             raise CallServiceError(domain, service, service_data)
